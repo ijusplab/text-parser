@@ -1,0 +1,26 @@
+
+# source code
+src
+
+# compiler
+tsconfig.json
+rollup.config.js
+
+# files
+*.log
+
+# tests
+test
+jest.config.js
+coverage
+
+#  lint
+.eslintrc.js
+.prettierrc
+
+# IDE - VSCode
+.vscode
+*.code-workspace
+
+# git
+.git
