@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+
+    // Output settings
+    "charset": "utf-8",
+    "sourceMap": true,
+    "removeComments": true,
+    "module": "esnext", // forced by roolup typescript plugin
+    "importHelpers": true, // forced by roolup typescript plugin
+    "noEmit": false, // forced by roolup typescript plugin
+
+    // type declaration settings    
+    "declaration": true,
+    "declarationDir": "types/",
+    "declarationMap": true,
+
+    // Source maps
+    "inlineSourceMap": false, // forced by roolup typescript plugin
+
+  },
+  "exclude": ["src/**/*.spec.*", "src/**/*.test.*", "test/**/*"]
+}

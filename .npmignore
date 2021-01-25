@@ -1,26 +1,30 @@
-
 # source code
+node_modules
 src
+yarn.lock
 
-# compiler
-tsconfig.json
-rollup.config.js
+# docs
+docs
+public
+typedoc.json
 
-# files
-*.log
-
-# tests
+# testing
+coverage
 test
 jest.config.js
-coverage
 
-#  lint
-.eslintrc.js
-.prettierrc
+# linting
+.eslintignore
+.eslintrs.js
+.prettierignore
+.prettierrc.js
 
-# IDE - VSCode
+# build tools
+rollup.config.js
+tsconfig*.json
+
+# git and IDE
 .vscode
 *.code-workspace
-
-# git
 .git
+.gitignore
