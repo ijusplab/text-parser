@@ -1,31 +1,31 @@
-import type { DataValue } from '../types';
+import { isNumber, isDate, CDate, parseFloatLocale, isBoolean, isString } from '@ijusplab/helpers';
+import type { TOutputValue, TParseParameters, TSortValue } from '../types';
 import { VALUE_FORMAT_TYPES } from '../types';
 import successOrThrow from './successOrThrow';
-import { isNumber, isDate, CDate, parseFloatLocale, isBoolean } from '@ijusplab/helpers';
+import getParseOptions from './getParseOptions';
 
 /**
- * Convertes parsed DataValue to its numeric equivalent.
+ * Gets TDataValue in format suitable to be sorted.
  *
- * @param value The DataValue
+ * @param value The TDataValue
  * @param parseParams The parameters informing how the value was parsed
  * @returns The number equivalent or the value itself, if parsed as string.
  */
-export default function getSortValue(
-  value: DataValue,
-  format: VALUE_FORMAT_TYPES,
-  locale?: string
-): number | string | null {
+export default function getSortValue(value: TOutputValue, parseParams: TParseParameters): TSortValue {
   if (value === null || value === undefined || value === '') return null;
   if (isDate(value)) return value.valueOf();
   if (isBoolean(value)) return Number(value);
+  const { toType, locale } = getParseOptions(parseParams);
 
   if (isNumber(value)) {
-    return format === VALUE_FORMAT_TYPES.PERCENT ? value / 100 : value;
+    if (toType === VALUE_FORMAT_TYPES.STRING) return value.toString();
+    if (toType === VALUE_FORMAT_TYPES.PERCENT) return value / 100;
+    return value;
   }
 
-  switch (format) {
+  switch (toType) {
     case VALUE_FORMAT_TYPES.STRING:
-      return value;
+      return isString(value) ? value : '';
 
     case VALUE_FORMAT_TYPES.NUMBER_STRING:
       return successOrThrow(() => parseFloatLocale(value), `Erro ao processar o valor "${value}"`) as number;
@@ -59,6 +59,7 @@ export default function getSortValue(
               .split(/[^\d]+/g)
               .filter((part) => part !== '')
               .reverse()
+              .map((part) => (part.length < 2 ? `00${part}`.slice(-2) : part))
               .join('')
           ),
         `Erro ao processar o valor "${value}"`
@@ -74,7 +75,7 @@ export default function getSortValue(
       return successOrThrow(() => parseFloatLocale(value), `Erro ao processar o valor "${value}"`) as number;
 
     case VALUE_FORMAT_TYPES.PERCENT_STRING:
-      return successOrThrow(() => parseFloatLocale(value), `Erro ao processar o valor "${value}"`) as number;
+      return successOrThrow(() => parseFloatLocale(value) / 100, `Erro ao processar o valor "${value}"`) as number;
 
     default:
       return 0;

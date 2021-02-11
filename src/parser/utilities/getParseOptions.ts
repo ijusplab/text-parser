@@ -1,5 +1,4 @@
-import type { ParseParameters } from '../types';
-import type { VALUE_FORMAT_TYPES } from '../types';
+import type { TParseParameters, VALUE_FORMAT_TYPES } from '../types';
 import type { CURRENCY_CODES } from '@ijusplab/helpers';
 
 /**
@@ -7,7 +6,7 @@ import type { CURRENCY_CODES } from '@ijusplab/helpers';
  * @param params
  */
 export default function getParseOptions(
-  params: ParseParameters
+  params: TParseParameters
 ): {
   toType: VALUE_FORMAT_TYPES;
   locale?: string;

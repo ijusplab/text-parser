@@ -7,21 +7,21 @@ import type { ISortOptions } from '../types';
 export default function getSortOptions(
   params: string | [string, ISortOptions]
 ): {
-  orderByPath: string;
+  path: string;
   from?: string | number | Date | 'min';
   to?: string | number | Date | 'max' | 'today';
-  expand?: boolean;
+  fillIn?: boolean;
   desc?: boolean;
 } {
   if (Array.isArray(params)) {
     return {
-      orderByPath: params[0],
+      path: params[0],
       from: params[1].from,
       to: params[1].to,
-      expand: params[1].expand,
+      fillIn: params[1].fillIn,
       desc: params[1].desc
     };
   } else {
-    return { orderByPath: params };
+    return { path: params };
   }
 }

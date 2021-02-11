@@ -1,22 +1,22 @@
-import type {
-  Config,
-  ParseTree,
-  IParsedDocSchema,
-  IDataOutput,
-  OptionsNode,
-  IOptionOutput,
-  ITargetOutput
-} from '../types';
-import { Tree } from '../types';
-import parseText from './parseText';
-import createDataTable from './createDataTable';
 import { isRegExp, isFunction } from '@ijusplab/helpers';
+import type {
+  IDocSchema,
+  TParseTree,
+  IParsedDocSchema,
+  IParsedDocument,
+  TOptionsNode,
+  IParsedOption,
+  IDataOutput
+} from './types';
+import { Tree } from './tree';
+import getDataAsTable from './getDataAsTable';
+import parseText from './parseText';
 
 /**
  * Class providing all parsing functionality
  */
 export default class Parser {
-  private _config: IParsedDocSchema[];
+  private _schemata: IParsedDocSchema[];
 
   /**
    * The constructor must receive an array of configuration items, each representing a type of parseable text.
@@ -24,8 +24,8 @@ export default class Parser {
    *
    * @param configItems The array of configuration items
    */
-  constructor(configItems: Config) {
-    this._config = configItems.map((item) => {
+  constructor(schemata: IDocSchema[]) {
+    this._schemata = schemata.map((item) => {
       const name = item.name;
       const label = item.label;
       const parseTree = new Tree(item.parseSchema);
@@ -37,8 +37,8 @@ export default class Parser {
     });
   }
 
-  public get config(): IParsedDocSchema[] {
-    return this._config;
+  public get schemata(): IParsedDocSchema[] {
+    return this._schemata;
   }
 
   /**
@@ -48,8 +48,8 @@ export default class Parser {
    * @returns The first document schema that fits the text.
    */
   public executeTests(text: string): IParsedDocSchema | null {
-    for (let i = 0; i < this._config.length; i++) {
-      const schema = this._config[i];
+    for (let i = 0; i < this._schemata.length; i++) {
+      const schema = this._schemata[i];
       const pass = schema.tests.every((pattern) => pattern.test(text));
       if (pass) {
         schema.tests.forEach((pattern) => (pattern.lastIndex = 0));
@@ -59,7 +59,7 @@ export default class Parser {
     return null;
   }
 
-  private parseTests(tests: (string | RegExp)[], parseTree: ParseTree): RegExp[] {
+  private parseTests(tests: (string | RegExp)[], parseTree: TParseTree): RegExp[] {
     if (!Array.isArray(tests)) throw new Error(`No tests found in ${parseTree.root.label}!`);
     return tests.map((path: string | RegExp) => {
       if (isRegExp(path)) return new RegExp(path, 'i');
@@ -71,12 +71,12 @@ export default class Parser {
   }
 
   /**
-   * The main parsing function. Public method that receives the text to be parsed and returns the resulting data.
+   * The main parsing function. Public method that receives the text to be parsed and returns the resulting data with options available.
    *
    * @param text Text to be parsed
    * @returns An object containing all parsed data properly structured in a suitable format.
    */
-  public parse(text: string): IDataOutput | null {
+  public parse(text: string): IParsedDocument | null {
     // Check if text matches any configuration items
     const schema = this.executeTests(text);
 
@@ -91,28 +91,23 @@ export default class Parser {
     }
 
     const parseTree = schema.parseTree;
-    let dataTree = parseText(parseTree, text);
+    let outputTree = parseText(parseTree, text);
 
     if (isFunction(postprocessing)) {
-      dataTree = postprocessing(dataTree);
+      outputTree = postprocessing(outputTree);
     }
 
-    const options = schema.optionsTree.root.getChildren();
+    const options = schema.optionsTree.root.getMyNodes();
     const optionsOutput = options.map((option) => {
-      const targets = (option as OptionsNode).getAllLeavesBelow();
       return {
         name: option.name,
         label: option.label,
         overwrites: option.info.overwrites,
-        dataTree: dataTree,
-        targets: targets.map((target) => {
-          return {
-            name: target.info.target,
-            data: createDataTable(target.value, dataTree, parseTree)
-          };
-        }) as ITargetOutput[]
+        outputTree: outputTree,
+        parseTree: parseTree,
+        option: option as TOptionsNode
       };
-    }) as IOptionOutput[];
+    }) as IParsedOption[];
 
     return {
       name: schema.name,
@@ -121,8 +116,26 @@ export default class Parser {
     };
   }
 
+  /**
+   * Returns properly data output from selected option.
+   *
+   * @param optionOutput
+   */
+  public getDataOutput(optionOutput: IParsedOption): IDataOutput[] {
+    const targets = (optionOutput.option as TOptionsNode).getAllLeavesBelow();
+    return targets.map((target) => {
+      return {
+        target: target.info.target,
+        data: getDataAsTable(target.value, optionOutput.outputTree, optionOutput.parseTree)
+      };
+    });
+  }
+
+  /**
+   * Returns doc schemata in json format.
+   */
   public toString(): string {
-    const objects = this.config.map((item) => {
+    const objects = this.schemata.map((item) => {
       return {
         preprocessing: item.preprocessing ? 'Function' : 'undefined',
         postprocessing: item.postprocessing ? 'Function' : 'undefined',

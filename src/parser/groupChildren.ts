@@ -1,6 +1,6 @@
-import type { IParseNodeInfo, IDataNode, IDataLeaf } from '../types';
-import { VALUE_MERGE_STRATEGY } from '../types';
 import { isString, isNumber, isBoolean, isDate } from '@ijusplab/helpers';
+import type { IParseNodeInfo, IOutputNode, IOutputLeaf } from './types';
+import { VALUE_MERGE_STRATEGY } from './types';
 
 /**
  * Post-processing of array of data values, in case any merge requirements should be observed.
@@ -9,7 +9,7 @@ import { isString, isNumber, isBoolean, isDate } from '@ijusplab/helpers';
  * @param nodeParams The parsing parameters of the root node
  * @returns An array of data values, modified in accordance with the post-processing parameters.
  */
-export default function groupChildren(dataNodes: IDataNode[], info: IParseNodeInfo): IDataNode[] {
+export default function groupChildren(dataNodes: IOutputNode[], info: IParseNodeInfo): IOutputNode[] {
   const { groupBy } = info;
 
   if (isString(groupBy)) {
@@ -22,7 +22,7 @@ export default function groupChildren(dataNodes: IDataNode[], info: IParseNodeIn
     }
 
     const unique = Object.keys(mapTable);
-    const grouped = [] as IDataNode[];
+    const grouped = [] as IOutputNode[];
 
     unique.forEach((key) => {
       grouped.push(merge(mapTable[key], info));
@@ -32,21 +32,27 @@ export default function groupChildren(dataNodes: IDataNode[], info: IParseNodeIn
   return dataNodes; // fallback
 }
 
-function getMapTable(nodes: IDataNode[], key: string): Record<string, IDataNode[]> {
+function getMapTable(nodes: IOutputNode[], key: string): Record<string, IOutputNode[]> {
   return nodes.reduce((map, node) => {
     const found = node.children.find((child) => child.name === key && 'value' in child);
     if (found && 'value' in found) {
-      const value = getNodeValue(found);
+      let value;
+      try {
+        value = getLeafValue(found);
+      } catch (e) {
+        console.log(key, nodes);
+        throw new Error(e.message);
+      }
       if (!map[value]) {
         map[value] = [];
       }
       map[value].push(node);
     }
     return map;
-  }, {} as Record<string, IDataNode[]>);
+  }, {} as Record<string, IOutputNode[]>);
 }
 
-function merge(dataNodes: IDataNode[], info: IParseNodeInfo): IDataNode {
+function merge(dataNodes: IOutputNode[], info: IParseNodeInfo): IOutputNode {
   if (dataNodes.length === 1) return dataNodes[0];
 
   const toPreserve = getPreserveParams(info);
@@ -70,13 +76,13 @@ function merge(dataNodes: IDataNode[], info: IParseNodeInfo): IDataNode {
         }
       });
       return toGo;
-    }, [] as (IDataNode | IDataLeaf)[]);
+    }, [] as (IOutputNode | IOutputLeaf)[]);
     if (children.length > 0) {
       const isLeaf = children.every((child) => 'value' in child);
       // Only Leaves should have their values merged.
       // In case of Nodes, just need to preserve all of them
       if (isLeaf) {
-        baseChildren.push(mergeValues(children as IDataLeaf[], strategy));
+        baseChildren.push(mergeValues(children as IOutputLeaf[], strategy));
       } else {
         children.forEach((child) => baseChildren.push(child));
       }
@@ -89,7 +95,7 @@ function merge(dataNodes: IDataNode[], info: IParseNodeInfo): IDataNode {
   return base;
 }
 
-function mergeValues(toBeMerged: IDataLeaf[], strategy?: VALUE_MERGE_STRATEGY): IDataLeaf {
+function mergeValues(toBeMerged: IOutputLeaf[], strategy?: VALUE_MERGE_STRATEGY): IOutputLeaf {
   const paradigm = toBeMerged[0];
   try {
     switch (strategy) {
@@ -97,25 +103,25 @@ function mergeValues(toBeMerged: IDataLeaf[], strategy?: VALUE_MERGE_STRATEGY): 
         return {
           name: paradigm.name,
           label: paradigm.label,
-          value: getSum(toBeMerged as IDataLeaf[])
+          value: getSum(toBeMerged as IOutputLeaf[])
         };
       case VALUE_MERGE_STRATEGY.PRODUCT:
         return {
           name: paradigm.name,
           label: paradigm.label,
-          value: getProduct(toBeMerged as IDataLeaf[])
+          value: getProduct(toBeMerged as IOutputLeaf[])
         };
       case VALUE_MERGE_STRATEGY.MIN:
         return {
           name: paradigm.name,
           label: paradigm.label,
-          value: getMin(toBeMerged as IDataLeaf[])
+          value: getMin(toBeMerged as IOutputLeaf[])
         };
       case VALUE_MERGE_STRATEGY.MAX:
         return {
           name: paradigm.name,
           label: paradigm.label,
-          value: getMax(toBeMerged as IDataLeaf[])
+          value: getMax(toBeMerged as IOutputLeaf[])
         };
       default:
         return paradigm;
@@ -132,7 +138,7 @@ function mergeValues(toBeMerged: IDataLeaf[], strategy?: VALUE_MERGE_STRATEGY): 
  * @param node The data node
  * @returns The node value as `string` or `number`.
  */
-function getNodeValue(dataLeaf: IDataLeaf): string | number {
+function getLeafValue(dataLeaf: IOutputLeaf): string | number {
   if (isString(dataLeaf.value) || isNumber(dataLeaf.value)) return dataLeaf.value as string | number;
   if (isDate(dataLeaf.value)) return dataLeaf.value.valueOf() as number;
   throw new Error('GroupBy is allowed only with string, number or date values!');
@@ -186,7 +192,7 @@ function getStrategy(
  * @param nodes Nodes whose values should be summed up
  * @returns The sum value oe a concatenated string.
  */
-function getSum(nodes: IDataLeaf[]): number | boolean {
+function getSum(nodes: IOutputLeaf[]): number | boolean {
   if (nodes.every((node) => isDate(node.value) || isString(node.value))) {
     throw new Error('Sum requires numbers or boolean values!');
   }
@@ -203,7 +209,7 @@ function getSum(nodes: IDataLeaf[]): number | boolean {
  * @param nodes Nodes whose values should be summed up
  * @returns The sum value oe a concatenated string.
  */
-function getProduct(nodes: IDataLeaf[]): number | boolean {
+function getProduct(nodes: IOutputLeaf[]): number | boolean {
   if (nodes.every((node) => isDate(node.value) || isString(node.value))) {
     throw new Error('Product requires numbers or boolean values!');
   }
@@ -220,7 +226,7 @@ function getProduct(nodes: IDataLeaf[]): number | boolean {
  * @param nodes Nodes to be considered
  * @returns The minimum value.
  */
-function getMin(nodes: IDataLeaf[]): number | string | boolean | Date {
+function getMin(nodes: IOutputLeaf[]): number | string | boolean | Date {
   if (nodes.every((node) => isBoolean(node.value))) {
     return getProduct(nodes);
   }
@@ -247,7 +253,7 @@ function getMin(nodes: IDataLeaf[]): number | string | boolean | Date {
  * @param nodes Nodes to be considered
  * @returns The minimum value.
  */
-function getMax(nodes: IDataLeaf[]): number | string | boolean | Date {
+function getMax(nodes: IOutputLeaf[]): number | string | boolean | Date {
   if (nodes.every((node) => isBoolean(node.value))) {
     return getSum(nodes);
   }

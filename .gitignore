@@ -1,7 +1,7 @@
-coverage/
-dist/
-node_modules/
-test/
-public/
-types/
+/coverage/
+/dist/
+/node_modules/
+/test/
+/public/
+/types/
 yarn.lock

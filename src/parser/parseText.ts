@@ -1,18 +1,17 @@
-import type {
-  ParseTree,
-  ParseNode,
-  ParseLeaf,
-  DataTree,
-  DataValue,
-  DataNodeInfo,
-  DataLeafInfo,
-  IDataNode,
-  IDataLeaf
-} from '../types';
-import { Tree } from '../types';
-import getDataValue from './getDataValue';
-import groupChildren from './groupChildren';
 import { isString } from '@ijusplab/helpers';
+import type {
+  TParseTree,
+  TParseNode,
+  TParseLeaf,
+  TOutputTree,
+  TOutputValue,
+  IOutputNode,
+  IOutputLeaf,
+  IOutputInfo
+} from './types';
+import { Tree } from './tree';
+import { getOutputValue } from './utilities';
+import groupChildren from './groupChildren';
 
 /**
  * Parses the input text, iterating recursively through all parameters given in the configuration object.
@@ -22,17 +21,17 @@ import { isString } from '@ijusplab/helpers';
  * @param text Text to be parsed
  * @returns An object presenting a data node consisting of a key having the name of the node, which holds an inner object with keys <name>, <label> and <value>.
  */
-export default function parseText(parseTree: ParseTree, text: string): DataTree {
+export default function parseText(parseTree: TParseTree, text: string): TOutputTree {
   // Creates data object that will be returned
   const root = createTree(parseTree.root, text);
-  return new Tree<DataValue, DataNodeInfo, DataLeafInfo>(root);
+  return new Tree<TOutputValue, IOutputInfo, IOutputInfo>(root);
 }
 
-function createTree(parseNode: ParseNode, text: string): IDataNode {
+function createTree(parseNode: TParseNode, text: string): IOutputNode {
   return createDataNode(parseNode, text);
 }
 
-function createDataNode(parseNode: ParseNode, text: string): IDataNode {
+function createDataNode(parseNode: TParseNode, text: string): IOutputNode {
   const name = parseNode.name;
   const label = parseNode.label;
 
@@ -43,6 +42,9 @@ function createDataNode(parseNode: ParseNode, text: string): IDataNode {
     pattern = new RegExp(parseNode.info.pattern, 'i');
     const parsed = pattern.exec(text);
     match = Array.isArray(parsed) ? parsed[parsed.length - 1] : null;
+    if (match === undefined) {
+      console.log(name, label, pattern, text, parsed);
+    }
   } else {
     match = text;
   }
@@ -50,21 +52,21 @@ function createDataNode(parseNode: ParseNode, text: string): IDataNode {
   if (match === null) return { name, label, children: [] };
 
   const children = createDataNodeChildren(parseNode, match);
-  return { name, label, children };
+  return { name, label, children, info: { text: match } };
 }
 
-function createDataLeaf(parseLeaf: ParseLeaf, text: string): IDataLeaf {
+function createDataLeaf(parseLeaf: TParseLeaf, text: string): IOutputLeaf {
   const name = parseLeaf.name;
   const label = parseLeaf.label;
   const pattern = new RegExp(parseLeaf.info.pattern, 'i');
   const parsed = pattern.exec(text);
   const from = Array.isArray(parsed) ? parsed[parsed.length - 1] : null;
-  const value = getDataValue(from ?? '', parseLeaf.value);
-  return { name, label, value };
+  const value = getOutputValue(from ?? '', parseLeaf.value);
+  return { name, label, value, info: { text } };
 }
 
-function splitNode(parseNode: ParseNode, text: string): IDataNode[] {
-  const nodes = [] as IDataNode[];
+function splitNode(parseNode: TParseNode, text: string): IOutputNode[] {
+  const nodes = [] as IOutputNode[];
   const { groupBy, pattern } = parseNode.info;
 
   if (isString(groupBy)) {
@@ -80,10 +82,10 @@ function splitNode(parseNode: ParseNode, text: string): IDataNode[] {
   return nodes;
 }
 
-function createDataNodeChildren(parseNode: ParseNode, text: string): (IDataNode | IDataLeaf)[] {
-  const children = [] as (IDataNode | IDataLeaf)[];
+function createDataNodeChildren(parseNode: TParseNode, text: string): (IOutputNode | IOutputLeaf)[] {
+  const children = [] as (IOutputNode | IOutputLeaf)[];
 
-  parseNode.getChildren().forEach((child) => {
+  parseNode.children.forEach((child) => {
     if (child.isLeaf()) {
       children.push(createDataLeaf(child, text));
     } else if (isString(child.info.groupBy)) {
